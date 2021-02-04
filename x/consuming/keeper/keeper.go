@@ -1,12 +1,15 @@
 package keeper
 
 import (
+	"fmt"
+
 	bandoracle "github.com/bandprotocol/chain/x/oracle/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	capabilitykeeper "github.com/cosmos/cosmos-sdk/x/capability/keeper"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
+	host "github.com/cosmos/cosmos-sdk/x/ibc/core/24-host"
 
 	"github.com/bandprotocol/band-consumer/x/consuming/types"
 )
@@ -14,16 +17,18 @@ import (
 type Keeper struct {
 	storeKey      sdk.StoreKey
 	cdc           codec.BinaryMarshaler
-	ChannelKeeper types.ChannelKeeper
+	channelKeeper types.ChannelKeeper
+	portKeeper    types.PortKeeper
 	scopedKeeper  capabilitykeeper.ScopedKeeper
 }
 
 // NewKeeper creates a new oracle Keeper instance.
-func NewKeeper(cdc codec.BinaryMarshaler, key sdk.StoreKey, channelKeeper types.ChannelKeeper, scopedKeeper capabilitykeeper.ScopedKeeper) Keeper {
+func NewKeeper(cdc codec.BinaryMarshaler, key sdk.StoreKey, channelKeeper types.ChannelKeeper, portKeeper types.PortKeeper, scopedKeeper capabilitykeeper.ScopedKeeper) Keeper {
 	return Keeper{
 		storeKey:      key,
 		cdc:           cdc,
-		ChannelKeeper: channelKeeper,
+		channelKeeper: channelKeeper,
+		portKeeper:    portKeeper,
 		scopedKeeper:  scopedKeeper,
 	}
 }
@@ -57,4 +62,12 @@ func (k Keeper) AuthenticateCapability(ctx sdk.Context, cap *capabilitytypes.Cap
 // passes to it
 func (k Keeper) ClaimCapability(ctx sdk.Context, cap *capabilitytypes.Capability, name string) error {
 	return k.scopedKeeper.ClaimCapability(ctx, cap, name)
+}
+
+// BindPort defines a wrapper function for the ort Keeper's function in
+// order to expose it to module's InitGenesis function
+func (k Keeper) BindPort(ctx sdk.Context, portID string) error {
+	fmt.Println(portID)
+	cap := k.portKeeper.BindPort(ctx, portID)
+	return k.ClaimCapability(ctx, cap, host.PortPath(portID))
 }

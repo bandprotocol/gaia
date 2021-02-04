@@ -3,7 +3,7 @@ module github.com/bandprotocol/band-consumer
 go 1.15
 
 require (
-	github.com/bandprotocol/chain v1.0.0
+	github.com/bandprotocol/chain v1.0.1-0.20210203092521-2d8edd39ffc0
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/btcsuite/btcutil v1.0.2
 	github.com/cosmos/cosmos-sdk v0.40.1

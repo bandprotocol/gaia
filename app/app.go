@@ -245,6 +245,7 @@ func NewBandConsumerApp(
 	app.CapabilityKeeper = capabilitykeeper.NewKeeper(appCodec, keys[capabilitytypes.StoreKey], memKeys[capabilitytypes.MemStoreKey])
 	scopedIBCKeeper := app.CapabilityKeeper.ScopeToModule(ibchost.ModuleName)
 	scopedTransferKeeper := app.CapabilityKeeper.ScopeToModule(ibctransfertypes.ModuleName)
+	scopedConsumingKeeper := app.CapabilityKeeper.ScopeToModule(consumingtypes.ModuleName)
 
 	// add keepers
 	app.AccountKeeper = authkeeper.NewAccountKeeper(
@@ -303,14 +304,16 @@ func NewBandConsumerApp(
 	)
 
 	app.ConsumingKeeper = consumingkeeper.NewKeeper(
-		appCodec, keys[consumingtypes.StoreKey], app.IBCKeeper.ChannelKeeper, app.ScopedIBCKeeper,
+		appCodec, keys[consumingtypes.StoreKey], app.IBCKeeper.ChannelKeeper, &app.IBCKeeper.PortKeeper, scopedConsumingKeeper,
 	)
 
 	transferModule := transfer.NewAppModule(app.TransferKeeper)
+	consumingModule := consuming.NewAppModule(app.ConsumingKeeper)
 
 	// Create static IBC router, add transfer route, then set and seal it
 	ibcRouter := porttypes.NewRouter()
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferModule)
+	ibcRouter.AddRoute(consumingtypes.ModuleName, consumingModule)
 	app.IBCKeeper.SetRouter(ibcRouter)
 
 	// create evidence keeper with router
@@ -352,8 +355,8 @@ func NewBandConsumerApp(
 		evidence.NewAppModule(app.EvidenceKeeper),
 		ibc.NewAppModule(app.IBCKeeper),
 		params.NewAppModule(app.ParamsKeeper),
-		consuming.NewAppModule(app.ConsumingKeeper),
 		transferModule,
+		consumingModule,
 	)
 
 	// During begin block slashing happens after distr.BeginBlocker so that
@@ -374,7 +377,7 @@ func NewBandConsumerApp(
 	app.mm.SetOrderInitGenesis(
 		capabilitytypes.ModuleName, authtypes.ModuleName, banktypes.ModuleName, distrtypes.ModuleName, stakingtypes.ModuleName,
 		slashingtypes.ModuleName, govtypes.ModuleName, minttypes.ModuleName, crisistypes.ModuleName,
-		ibchost.ModuleName, genutiltypes.ModuleName, evidencetypes.ModuleName, ibctransfertypes.ModuleName,
+		ibchost.ModuleName, genutiltypes.ModuleName, evidencetypes.ModuleName, consumingtypes.ModuleName, ibctransfertypes.ModuleName,
 	)
 
 	app.mm.RegisterInvariants(&app.CrisisKeeper)
@@ -397,6 +400,7 @@ func NewBandConsumerApp(
 		params.NewAppModule(app.ParamsKeeper),
 		evidence.NewAppModule(app.EvidenceKeeper),
 		ibc.NewAppModule(app.IBCKeeper),
+		consumingModule,
 		transferModule,
 	)
 

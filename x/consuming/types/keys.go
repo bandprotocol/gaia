@@ -18,6 +18,10 @@ const (
 	// QuerierRoute is the querier route for consuming
 	QuerierRoute = ModuleName
 
+	// PortKey
+	PortKey = ModuleName
+
+	// Version
 	Version = "ics20-1"
 )
 

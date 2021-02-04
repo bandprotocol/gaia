@@ -18,7 +18,7 @@ var _ types.MsgServer = Keeper{}
 func (k Keeper) RequestData(goCtx context.Context, msg *types.MsgRequestData) (*types.MsgRequestDataResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	sourceChannelEnd, found := k.ChannelKeeper.GetChannel(ctx, "consuming", msg.SourceChannel)
+	sourceChannelEnd, found := k.channelKeeper.GetChannel(ctx, "consuming", msg.SourceChannel)
 	if !found {
 		return nil, sdkerrors.Wrapf(
 			sdkerrors.ErrUnknownRequest,
@@ -28,7 +28,7 @@ func (k Keeper) RequestData(goCtx context.Context, msg *types.MsgRequestData) (*
 	}
 	destinationPort := sourceChannelEnd.Counterparty.PortId
 	destinationChannel := sourceChannelEnd.Counterparty.ChannelId
-	sequence, found := k.ChannelKeeper.GetNextSequenceSend(
+	sequence, found := k.channelKeeper.GetNextSequenceSend(
 		ctx, "consuming", msg.SourceChannel,
 	)
 	if !found {
@@ -38,9 +38,9 @@ func (k Keeper) RequestData(goCtx context.Context, msg *types.MsgRequestData) (*
 			msg.SourceChannel,
 		)
 	}
-	sourcePort := "band-consumer"
+	sourcePort := "consuming"
 	packet := bandoracle.NewOracleRequestPacketData(
-		"band-consumer",
+		"consuming",
 		bandoracle.OracleScriptID(msg.OracleScriptID),
 		msg.Calldata,
 		uint64(msg.AskCount),
@@ -50,7 +50,7 @@ func (k Keeper) RequestData(goCtx context.Context, msg *types.MsgRequestData) (*
 	if !ok {
 		return nil, sdkerrors.Wrap(channeltypes.ErrChannelCapabilityNotFound, "module does not own channel capability")
 	}
-	err := k.ChannelKeeper.SendPacket(ctx, channelCap, channeltypes.NewPacket(
+	err := k.channelKeeper.SendPacket(ctx, channelCap, channeltypes.NewPacket(
 		packet.GetBytes(),
 		sequence,
 		sourcePort,

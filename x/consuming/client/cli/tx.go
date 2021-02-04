@@ -7,6 +7,7 @@ import (
 
 	bandoracle "github.com/bandprotocol/chain/x/oracle/types"
 	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/flags"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/version"
 	"github.com/spf13/cobra"
@@ -108,6 +109,8 @@ $ %s tx consuming request 1 --calldata 1234abcdef --requested-validator-count 4 
 	cmd.MarkFlagRequired(flagMinCount)
 	cmd.Flags().String(flagChannel, "", "The channel id.")
 	cmd.MarkFlagRequired(flagChannel)
+
+	flags.AddTxFlagsToCmd(cmd)
 
 	return cmd
 }
