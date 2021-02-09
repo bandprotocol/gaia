@@ -3,13 +3,14 @@ package keeper
 import (
 	"fmt"
 
-	bandoracle "github.com/bandprotocol/chain/x/oracle/types"
+	oracletypes "github.com/bandprotocol/chain/x/oracle/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	capabilitykeeper "github.com/cosmos/cosmos-sdk/x/capability/keeper"
 	capabilitytypes "github.com/cosmos/cosmos-sdk/x/capability/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/core/24-host"
+	gogotypes "github.com/gogo/protobuf/types"
 
 	"github.com/bandprotocol/band-consumer/x/consuming/types"
 )
@@ -33,12 +34,12 @@ func NewKeeper(cdc codec.BinaryMarshaler, key sdk.StoreKey, channelKeeper types.
 	}
 }
 
-func (k Keeper) SetResult(ctx sdk.Context, requestID bandoracle.RequestID, result []byte) {
+func (k Keeper) SetResult(ctx sdk.Context, requestID oracletypes.RequestID, result []byte) {
 	store := ctx.KVStore(k.storeKey)
 	store.Set(types.ResultStoreKey(requestID), result)
 }
 
-func (k Keeper) GetResult(ctx sdk.Context, requestID bandoracle.RequestID) ([]byte, error) {
+func (k Keeper) GetResult(ctx sdk.Context, requestID oracletypes.RequestID) ([]byte, error) {
 	if !k.HasResult(ctx, requestID) {
 		return nil, sdkerrors.Wrapf(types.ErrItemNotFound,
 			"GetResult: Result for request ID %d is not available.", requestID,
@@ -48,9 +49,20 @@ func (k Keeper) GetResult(ctx sdk.Context, requestID bandoracle.RequestID) ([]by
 	return store.Get(types.ResultStoreKey(requestID)), nil
 }
 
-func (k Keeper) HasResult(ctx sdk.Context, requestID bandoracle.RequestID) bool {
+func (k Keeper) HasResult(ctx sdk.Context, requestID oracletypes.RequestID) bool {
 	store := ctx.KVStore(k.storeKey)
 	return store.Has(types.ResultStoreKey(requestID))
+}
+
+func (k Keeper) GetLatestRequestID(ctx sdk.Context) int64 {
+	bz := ctx.KVStore(k.storeKey).Get(types.LatestRequestIDKey)
+	intV := gogotypes.Int64Value{}
+	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &intV)
+	return intV.GetValue()
+}
+
+func (k Keeper) SetLatestRequestID(ctx sdk.Context, id oracletypes.RequestID) {
+	ctx.KVStore(k.storeKey).Set(types.LatestRequestIDKey, k.cdc.MustMarshalBinaryLengthPrefixed(&gogotypes.Int64Value{Value: int64(id)}))
 }
 
 // AuthenticateCapability wraps the scopedKeeper's AuthenticateCapability function

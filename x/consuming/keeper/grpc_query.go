@@ -19,3 +19,9 @@ func (q Keeper) Result(c context.Context, req *types.QueryResultRequest) (*types
 	}
 	return &types.QueryResultResponse{Result: bz}, nil
 }
+
+func (q Keeper) LatestRequestID(c context.Context, req *types.QueryLatestRequestIDRequest) (*types.QueryLatestRequestIDResponse, error) {
+	ctx := sdk.UnwrapSDKContext(c)
+	id := q.GetLatestRequestID(ctx)
+	return &types.QueryLatestRequestIDResponse{RequestId: id}, nil
+}

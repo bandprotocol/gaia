@@ -28,6 +28,9 @@ const (
 var (
 	// ResultStoreKeyPrefix is a prefix for storing result
 	ResultStoreKeyPrefix = []byte{0xff}
+
+	// LatestRequestIDKey
+	LatestRequestIDKey = []byte{0x01}
 )
 
 // ResultStoreKey is a function to generate key for each result in store

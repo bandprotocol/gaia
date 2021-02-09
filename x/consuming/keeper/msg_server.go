@@ -57,7 +57,7 @@ func (k Keeper) RequestData(goCtx context.Context, msg *types.MsgRequestData) (*
 		msg.SourceChannel,
 		destinationPort,
 		destinationChannel,
-		clienttypes.NewHeight(100, 100),
+		clienttypes.NewHeight(0, 10000),
 		0, // Arbitrarily high timeout for now
 	))
 	if err != nil {

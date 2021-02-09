@@ -1,6 +1,8 @@
 package consuming
 
 import (
+	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -11,7 +13,7 @@ import (
 
 	abci "github.com/tendermint/tendermint/abci/types"
 
-	bandoracle "github.com/bandprotocol/chain/x/oracle/types"
+	oracletypes "github.com/bandprotocol/chain/x/oracle/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -23,6 +25,7 @@ import (
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/05-port/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/core/24-host"
+	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
 
 	"github.com/bandprotocol/band-consumer/x/consuming/client/cli"
@@ -74,7 +77,7 @@ func (AppModuleBasic) RegisterRESTRoutes(clientCtx client.Context, rtr *mux.Rout
 
 // RegisterGRPCGatewayRoutes registers the gRPC Gateway routes for the ibc-transfer module.
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
-	// types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
+	types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx))
 }
 
 // GetTxCmd implements AppModuleBasic interface
@@ -287,30 +290,18 @@ func (am AppModule) OnRecvPacket(
 	ctx sdk.Context,
 	packet channeltypes.Packet,
 ) (*sdk.Result, []byte, error) {
-	var data bandoracle.OracleResponsePacketData
+	var data oracletypes.OracleResponsePacketData
 	if err := types.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
-		return nil, nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal ICS-20 transfer packet data: %s", err.Error())
+		return nil, nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal Oracle response packet data: %s", err.Error())
 	}
 
-	acknowledgement := channeltypes.NewResultAcknowledgement([]byte{byte(1)})
-
-	fmt.Println("Receive result packet", data.Result)
-
-	// ctx.EventManager().EmitEvent(
-	// 	sdk.NewEvent(
-	// 		types.EventTypePacket,
-	// 		sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
-	// 		sdk.NewAttribute(types.AttributeKeyReceiver, data.Receiver),
-	// 		sdk.NewAttribute(types.AttributeKeyDenom, data.Denom),
-	// 		sdk.NewAttribute(types.AttributeKeyAmount, fmt.Sprintf("%d", data.Amount)),
-	// 		sdk.NewAttribute(types.AttributeKeyAckSuccess, fmt.Sprintf("%t", err != nil)),
-	// 	),
-	// )
+	fmt.Println("Receive result packet", hex.EncodeToString(data.Result))
+	am.keeper.SetResult(ctx, data.RequestID, data.Result)
 
 	// NOTE: acknowledgement will be written synchronously during IBC handler execution.
 	return &sdk.Result{
 		Events: ctx.EventManager().Events().ToABCIEvents(),
-	}, acknowledgement.GetBytes(), nil
+	}, nil, nil
 }
 
 // OnAcknowledgementPacket implements the IBCModule interface
@@ -320,50 +311,29 @@ func (am AppModule) OnAcknowledgementPacket(
 	acknowledgement []byte,
 ) (*sdk.Result, error) {
 	return &sdk.Result{}, nil
-	// var ack channeltypes.Acknowledgement
-	// if err := types.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
-	// 	return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal ICS-20 transfer packet acknowledgement: %v", err)
-	// }
-	// var data types.FungibleTokenPacketData
-	// if err := types.ModuleCdc.UnmarshalJSON(packet.GetData(), &data); err != nil {
-	// 	return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal ICS-20 transfer packet data: %s", err.Error())
-	// }
+	var ack channeltypes.Acknowledgement
+	if err := types.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
+		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal ICS-20 transfer packet acknowledgement: %v", err)
+	}
+	switch resp := ack.Response.(type) {
+	case *channeltypes.Acknowledgement_Result:
+		intV := gogotypes.Int64Value{}
+		types.ModuleCdc.MustUnmarshalBinaryLengthPrefixed(resp.Result, &intV)
+		requestID := oracletypes.RequestID(intV.GetValue())
+		am.keeper.SetLatestRequestID(ctx, requestID)
+	case *channeltypes.Acknowledgement_Error:
+		// TODO: Handle timeout request
+		// ctx.EventManager().EmitEvent(
+		// 	sdk.NewEvent(
+		// 		types.EventTypePacket,
+		// 		sdk.NewAttribute(types.AttributeKeyAckError, resp.Error),
+		// 	),
+		// )
+	}
 
-	// if err := am.keeper.OnAcknowledgementPacket(ctx, packet, data, ack); err != nil {
-	// 	return nil, err
-	// }
-
-	// ctx.EventManager().EmitEvent(
-	// 	sdk.NewEvent(
-	// 		types.EventTypePacket,
-	// 		sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
-	// 		sdk.NewAttribute(types.AttributeKeyReceiver, data.Receiver),
-	// 		sdk.NewAttribute(types.AttributeKeyDenom, data.Denom),
-	// 		sdk.NewAttribute(types.AttributeKeyAmount, fmt.Sprintf("%d", data.Amount)),
-	// 		sdk.NewAttribute(types.AttributeKeyAck, fmt.Sprintf("%v", ack)),
-	// 	),
-	// )
-
-	// switch resp := ack.Response.(type) {
-	// case *channeltypes.Acknowledgement_Result:
-	// 	ctx.EventManager().EmitEvent(
-	// 		sdk.NewEvent(
-	// 			types.EventTypePacket,
-	// 			sdk.NewAttribute(types.AttributeKeyAckSuccess, string(resp.Result)),
-	// 		),
-	// 	)
-	// case *channeltypes.Acknowledgement_Error:
-	// 	ctx.EventManager().EmitEvent(
-	// 		sdk.NewEvent(
-	// 			types.EventTypePacket,
-	// 			sdk.NewAttribute(types.AttributeKeyAckError, resp.Error),
-	// 		),
-	// 	)
-	// }
-
-	// return &sdk.Result{
-	// 	Events: ctx.EventManager().Events().ToABCIEvents(),
-	// }, nil
+	return &sdk.Result{
+		Events: ctx.EventManager().Events().ToABCIEvents(),
+	}, nil
 }
 
 // OnTimeoutPacket implements the IBCModule interface

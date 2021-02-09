@@ -12,6 +12,12 @@ service Query {
   rpc Result(QueryResultRequest) returns (QueryResultResponse) {
     option (google.api.http).get = "/consuming/v1/result/{request_id}";
   }
+
+  // LatestRequestID
+  rpc LatestRequestID(QueryLatestRequestIDRequest)
+      returns (QueryLatestRequestIDResponse) {
+    option (google.api.http).get = "/consuming/v1/latest_request_id";
+  }
 }
 
 // QueryResultRequest is the request type for the Query/Result RPC method
@@ -22,3 +28,9 @@ message QueryResultResponse {
   // pagination defines an optional pagination for the request.
   bytes result = 1;
 }
+
+// QueryLatestRequestIDRequest
+message QueryLatestRequestIDRequest {}
+
+// QueryLatestRequestIDResponse
+message QueryLatestRequestIDResponse { int64 request_id = 1; }
