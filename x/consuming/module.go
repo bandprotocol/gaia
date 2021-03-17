@@ -25,7 +25,6 @@ import (
 	channeltypes "github.com/cosmos/cosmos-sdk/x/ibc/core/04-channel/types"
 	porttypes "github.com/cosmos/cosmos-sdk/x/ibc/core/05-port/types"
 	host "github.com/cosmos/cosmos-sdk/x/ibc/core/24-host"
-	gogotypes "github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
 
 	"github.com/bandprotocol/band-consumer/x/consuming/client/cli"
@@ -310,17 +309,15 @@ func (am AppModule) OnAcknowledgementPacket(
 	packet channeltypes.Packet,
 	acknowledgement []byte,
 ) (*sdk.Result, error) {
-	return &sdk.Result{}, nil
 	var ack channeltypes.Acknowledgement
 	if err := types.ModuleCdc.UnmarshalJSON(acknowledgement, &ack); err != nil {
 		return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "cannot unmarshal ICS-20 transfer packet acknowledgement: %v", err)
 	}
 	switch resp := ack.Response.(type) {
 	case *channeltypes.Acknowledgement_Result:
-		intV := gogotypes.Int64Value{}
-		types.ModuleCdc.MustUnmarshalBinaryLengthPrefixed(resp.Result, &intV)
-		requestID := oracletypes.RequestID(intV.GetValue())
-		am.keeper.SetLatestRequestID(ctx, requestID)
+		var oracleAck oracletypes.OracleRequestPacketAcknowledgement
+		oracletypes.ModuleCdc.MustUnmarshalJSON(resp.Result, &oracleAck)
+		am.keeper.SetLatestRequestID(ctx, oracleAck.RequestID)
 	case *channeltypes.Acknowledgement_Error:
 		// TODO: Handle timeout request
 		// ctx.EventManager().EmitEvent(
